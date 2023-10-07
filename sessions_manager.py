@@ -1,4 +1,7 @@
 from aiogram import types
+
+import database
+from sessions.favourites_session import FavouritesSession
 from sessions.search_session import SearchTitleSession
 from sessions.session_abc import Session
 
@@ -13,8 +16,12 @@ class SessionsManager:
         else:
             return None
 
-    async def start_search_session(self, message: types.Message):
-        self.sessions[message.chat.id] = SearchTitleSession(message)
+    async def start_search_session(self, message: types.Message, db: database.Database):
+        self.sessions[message.chat.id] = SearchTitleSession(message, databases=db)
+        await self.sessions[message.chat.id].start(message)
+
+    async def start_favourites_session(self, message: types.Message, db: database.Database):
+        self.sessions[message.chat.id] = FavouritesSession(message, databases=db)
         await self.sessions[message.chat.id].start(message)
 
     async def on_message(self, message: types.Message):

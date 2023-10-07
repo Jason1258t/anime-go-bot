@@ -2,6 +2,7 @@ from aiogram import types
 
 import config
 import parser
+from database import Database
 from reply_markups import BotReplyMarkups
 from sessions.session_abc import Session
 
@@ -14,12 +15,14 @@ class SearchWaitFor:
 
 
 class SearchTitleSession(Session):
-    def __init__(self, message: types.Message):
+    def __init__(self, message: types.Message, databases: Database):
         super().__init__(message)
         self.search_type = 'all'
         self.wait_for = SearchWaitFor.type
         self.query = None
         self.founded_items: list[parser.FoundedObject] | None = None
+        self.current_item: parser.FoundedObject | None = None
+        self.databases = databases
 
     async def start(self, message: types.Message):
         await message.answer(reply_markup=BotReplyMarkups.select_title_type, text='Что ищем?')
@@ -52,20 +55,35 @@ class SearchTitleSession(Session):
         self.query = message.text
 
         await message.answer('Секунду ищем')
+        items: list[parser.FoundedObject] = []
+
         if self.search_type != 'all':
             items = parser.Parser.find(self.search_type, self.query)
-            self.founded_items = items
-            await message.answer('\n\n'.join([f'{i + 1}. {items[i].preview()}' for i in range(len(items))]),
-                                 reply_markup=BotReplyMarkups.select_title_actions(len(items)))
+        elif self.search_type == 'all':
+            items = parser.Parser.find_all(self.query)
 
-            self.wait_for = SearchWaitFor.select_title
+        self.founded_items = items
+        await message.answer('\n\n'.join([f'{i + 1}. {items[i].preview()}' for i in range(len(items))]),
+                             reply_markup=BotReplyMarkups.select_title_actions(len(items)))
+
+        self.wait_for = SearchWaitFor.select_title
 
     async def _handle_select_title_actions(self, message: types.Message):
+        favourites = self.databases.get_user_favourites(message.from_user.id)
         if message.text in [str(i + 1) for i in range(len(self.founded_items))]:
             item = self.founded_items[int(message.text) - 1]
+            self.current_item = item
+
+            followed = False
+            for j in favourites:
+                if j.url == item.url:
+                    followed = True
+                    break
+
             await message.answer_photo(photo=item.image_url,
-                                       caption=f'{item.name}  {item.rating}\n{item.original_name} \n{item.url}',
-                                       reply_markup=BotReplyMarkups.title_page_actions)
+                                       caption=f'{item.name} | {"Аниме" if item.type == "anime" else "Манга"} {item.rating}⭐️️\n{item.original_name} \n{item.url}',
+                                       reply_markup=BotReplyMarkups.title_page_actions(
+                                           second_action='Прекратить отслеживать' if followed else 'Отслеживать'))
 
             self.wait_for = SearchWaitFor.page_actions
         else:
@@ -79,3 +97,18 @@ class SearchTitleSession(Session):
                 reply_markup=BotReplyMarkups.select_title_actions(len(self.founded_items)))
 
             self.wait_for = SearchWaitFor.select_title
+        elif message.text == 'Отслеживать':
+            self.databases.add_favourites(user_id=message.from_user.id, title=self.current_item)
+            item = self.current_item
+            await message.answer_photo(photo=item.image_url,
+                                       caption=f'{item.name} | {"Аниме" if item.type == "anime" else "Манга"} {item.rating}⭐️️\n{item.original_name} \n{item.url}',
+                                       reply_markup=BotReplyMarkups.title_page_actions(
+                                           second_action='Прекратить отслеживать'))
+        elif message.text == 'Прекратить отслеживать':
+            self.databases.delete_favourite(user_id=message.from_user.id, title_url=self.current_item.url)
+            item = self.current_item
+            await message.answer_photo(photo=item.image_url,
+                                       caption=f'{item.name} | {"Аниме" if item.type == "anime" else "Манга"} {item.rating}⭐️️\n{item.original_name} \n{item.url}',
+                                       reply_markup=BotReplyMarkups.title_page_actions(
+                                           second_action='Отслеживать'))
+

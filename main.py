@@ -3,6 +3,7 @@ import asyncio
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters.command import Command
 
+import database
 import reply_markups
 from sessions_manager import SessionsManager
 
@@ -10,6 +11,8 @@ bot = Bot(token="5315337669:AAG8SHRoX3jqT_RTmha1J8MTgHcqJA9fXVI")
 
 dp = Dispatcher()
 manager = SessionsManager()
+
+db = database.Database()
 
 
 @dp.message(Command("start"))
@@ -26,7 +29,12 @@ async def cmd_start(message: types.Message):
 
 @dp.message(Command("Тайтл"))
 async def start_title_mode(message: types.Message):
-    await manager.start_search_session(message)
+    await manager.start_search_session(message, db)
+
+
+@dp.message(Command("Отслеживаемые"))
+async def start_title_mode(message: types.Message):
+    await manager.start_favourites_session(message, db)
 
 
 @dp.message()
