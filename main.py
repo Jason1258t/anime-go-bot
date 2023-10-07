@@ -18,6 +18,12 @@ async def cmd_start(message: types.Message):
     await message.answer("Hello!", reply_markup=reply_markups.BotReplyMarkups.main_menu())
 
 
+@dp.message(Command("Главная"))
+async def cmd_start(message: types.Message):
+
+    await message.answer("Что теперь?", reply_markup=reply_markups.BotReplyMarkups.main_menu())
+
+
 @dp.message(Command("Тайтл"))
 async def start_title_mode(message: types.Message):
     await manager.start_search_session(message)
