@@ -48,7 +48,7 @@ class SearchTitleSession(Session):
             await message.answer('Введите название того что ищем', reply_markup=types.ReplyKeyboardRemove())
         else:
             await message.answer('Я не знаю что это такое, пожалуйста выберите из предложенных вариантов',
-                                 reply_markup=BotReplyMarkups.select_title_type())
+                                 reply_markup=BotReplyMarkups.select_title_type)
             return
 
     async def _handle_query(self, message: types.Message):
